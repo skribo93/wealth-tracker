@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wealth Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#f5f3ee; --surface:#fff; --surface-2:#f0ede7;
+  --border:rgba(0,0,0,0.08); --border-md:rgba(0,0,0,0.14);
+  --text:#1a1917; --text-2:#6b6860; --text-3:#a09d97;
+  --accent:#1a4f3a; --accent-light:#e8f2ed; --accent-mid:#2d7a58;
+  --danger:#c0392b; --danger-light:#fdecea; --success:#1d7a50;
+  --amber:#8f5a1d; --amber-light:#f7f0e8;
+  --font-display:'DM Serif Display',Georgia,serif;
+  --font-body:'DM Sans',system-ui,sans-serif;
+  --radius:12px; --radius-sm:8px;
+  --shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 12px rgba(0,0,0,0.04);
+}
+body { font-family:var(--font-body); background:var(--bg); color:var(--text); min-height:100vh; font-size:15px; line-height:1.5; }
+.layout { display:flex; min-height:100vh; }
+
+/* Sidebar */
+.sidebar { width:220px; flex-shrink:0; background:var(--accent); padding:2rem 1.25rem; display:flex; flex-direction:column; gap:1.5rem; position:fixed; top:0; left:0; bottom:0; overflow-y:auto; }
+.sidebar-logo { font-family:var(--font-display); font-size:20px; color:#fff; letter-spacing:-0.3px; line-height:1.2; }
+.sidebar-logo span { display:block; font-family:var(--font-body); font-size:11px; font-weight:300; color:rgba(255,255,255,0.55); letter-spacing:0.5px; text-transform:uppercase; margin-top:2px; }
+.nav { display:flex; flex-direction:column; gap:4px; }
+.nav-section { font-size:10px; font-weight:500; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:0.8px; padding:0 12px; margin-top:8px; margin-bottom:2px; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:var(--radius-sm); cursor:pointer; font-size:14px; font-weight:400; color:rgba(255,255,255,0.65); transition:all .15s; border:none; background:transparent; width:100%; text-align:left; font-family:var(--font-body); }
+.nav-item:hover { background:rgba(255,255,255,0.1); color:#fff; }
+.nav-item.active { background:rgba(255,255,255,0.15); color:#fff; font-weight:500; }
+.nav-item.budget-link { border:1px solid rgba(255,255,255,0.15); }
+.nav-badge { font-size:10px; padding:2px 6px; border-radius:10px; background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.8); margin-left:auto; white-space:nowrap; }
+.nav-badge.surplus { background:rgba(100,220,150,0.25); color:#7dffb0; }
+.nav-badge.deficit { background:rgba(255,100,100,0.25); color:#ffb0b0; }
+.nav-icon { width:18px; height:18px; opacity:0.8; flex-shrink:0; }
+.sidebar-footer { margin-top:auto; font-size:12px; color:rgba(255,255,255,0.35); }
+
+/* Main */
+.main { margin-left:220px; flex:1; padding:2.5rem; max-width:1000px; }
+.page-header { margin-bottom:2rem; }
+.page-title { font-family:var(--font-display); font-size:28px; color:var(--text); letter-spacing:-0.5px; }
+.page-sub { font-size:14px; color:var(--text-2); margin-top:4px; }
+
+/* Cards */
+.summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:2rem; }
+.metric-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; box-shadow:var(--shadow); }
+.metric-card.featured { background:var(--accent); border-color:var(--accent); }
+.metric-card.featured .metric-label { color:rgba(255,255,255,0.6); }
+.metric-card.featured .metric-value { color:#fff; }
+.metric-card.featured .metric-badge { background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.9); }
+.metric-label { font-size:12px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+.metric-value { font-family:var(--font-display); font-size:24px; color:var(--text); letter-spacing:-0.5px; }
+.metric-badge { display:inline-block; margin-top:6px; font-size:12px; padding:3px 8px; border-radius:20px; background:var(--accent-light); color:var(--accent); }
+.metric-badge.neg { background:var(--danger-light); color:var(--danger); }
+
+/* Layout */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:2rem; }
+.full-col { margin-bottom:2rem; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; box-shadow:var(--shadow); }
+.card-title { font-size:13px; font-weight:500; color:var(--text-2); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:1.25rem; }
+.card-title-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; }
+.card-title-row .card-title { margin-bottom:0; }
+.chart-wrap { position:relative; width:100%; }
+
+/* Account rows */
+.account-list { display:flex; flex-direction:column; gap:8px; }
+.account-row { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); transition:border-color .15s; }
+.account-row:hover { border-color:var(--border-md); }
+.acct-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.acct-info { flex:1; min-width:0; }
+.acct-name { font-size:14px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.acct-type { font-size:12px; color:var(--text-3); }
+.acct-right { text-align:right; flex-shrink:0; }
+.acct-bal { font-size:14px; font-weight:500; color:var(--text); }
+.acct-chg { font-size:12px; color:var(--success); }
+.acct-chg.neg { color:var(--danger); }
+.acct-actions { display:flex; gap:4px; flex-shrink:0; }
+.icon-btn { border:none; background:none; cursor:pointer; padding:5px; border-radius:6px; color:var(--text-3); transition:all .15s; display:flex; align-items:center; }
+.icon-btn:hover { background:var(--surface-2); color:var(--text-2); }
+.icon-btn.del:hover { background:var(--danger-light); color:var(--danger); }
+
+/* Legend */
+.legend { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:12px; }
+.leg-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-2); }
+.leg-sq { width:9px; height:9px; border-radius:2px; }
+
+/* Projection controls */
+.ctrl-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:1.5rem; }
+.ctrl { background:var(--surface-2); border-radius:var(--radius-sm); padding:14px; }
+.ctrl label { display:block; font-size:12px; color:var(--text-2); margin-bottom:8px; font-weight:500; }
+.ctrl-row { display:flex; align-items:center; gap:10px; }
+.ctrl-row input[type=range] { flex:1; -webkit-appearance:none; height:4px; border-radius:4px; background:var(--border-md); outline:none; cursor:pointer; }
+.ctrl-row input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--accent); cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
+.ctrl-val { font-size:13px; font-weight:500; min-width:70px; text-align:right; color:var(--text); }
+.proj-highlight { background:var(--accent-light); border-left:3px solid var(--accent); border-radius:0 var(--radius-sm) var(--radius-sm) 0; padding:12px 16px; font-size:14px; color:var(--accent); margin-bottom:1.5rem; line-height:1.6; }
+
+/* Milestones */
+.milestone-list { display:flex; flex-direction:column; gap:8px; }
+.milestone { display:flex; align-items:center; gap:12px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); }
+.ms-badge { font-size:11px; font-weight:500; padding:4px 10px; border-radius:20px; min-width:60px; text-align:center; flex-shrink:0; }
+.ms-info { flex:1; }
+.ms-name { font-size:13px; font-weight:500; color:var(--text); }
+.ms-sub { font-size:12px; color:var(--text-3); }
+
+/* Alloc */
+.alloc-row { display:flex; align-items:center; gap:10px; margin-bottom:2px; }
+.alloc-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.alloc-label { flex:1; font-size:13px; color:var(--text-2); }
+.alloc-pct { font-size:13px; font-weight:500; color:var(--text); }
+.alloc-bar { height:4px; border-radius:4px; background:var(--border); margin-bottom:8px; overflow:hidden; }
+.alloc-bar-fill { height:100%; border-radius:4px; }
+
+/* Pages */
+.page { display:none; }
+.page.active { display:block; }
+.add-btn { width:100%; padding:11px; border:1.5px dashed var(--border-md); border-radius:var(--radius-sm); background:transparent; color:var(--text-3); font-size:13px; font-family:var(--font-body); cursor:pointer; margin-top:10px; transition:all .15s; }
+.add-btn:hover { border-color:var(--accent-mid); color:var(--accent-mid); background:var(--accent-light); }
+
+/* History log */
+.hist-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
+.hist-row:last-child { border-bottom:none; }
+.hist-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.hist-info { flex:1; min-width:0; }
+.hist-name { font-size:13px; font-weight:500; color:var(--text); }
+.hist-meta { font-size:11px; color:var(--text-3); margin-top:1px; }
+.hist-amt { font-size:13px; font-weight:500; white-space:nowrap; }
+.hist-amt.pos { color:var(--success); }
+.hist-amt.neg { color:var(--danger); }
+.hist-amt.snap { color:var(--text-2); }
+.hist-empty { text-align:center; padding:2rem 1rem; color:var(--text-3); font-size:13px; }
+
+/* Auto-apply rules */
+.rule-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:8px; background:var(--surface); }
+.rule-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.rule-name { font-size:13px; font-weight:500; color:var(--text); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rule-pct-wrap { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.rule-pct-wrap input { width:60px; padding:5px 8px; border:1px solid var(--border-md); border-radius:var(--radius-sm); font-size:13px; font-family:var(--font-body); text-align:right; outline:none; background:var(--surface-2); color:var(--text); }
+.rule-pct-wrap input:focus { border-color:var(--accent); background:var(--surface); }
+.rule-pct-wrap span { font-size:13px; color:var(--text-3); }
+.rule-total { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:var(--radius-sm); background:var(--surface-2); font-size:13px; margin-top:4px; }
+.rule-total-label { color:var(--text-2); }
+.rule-total-val { font-weight:500; }
+.rule-total-val.over { color:var(--danger); }
+.rule-total-val.ok { color:var(--success); }
+
+/* Budget link */
+.bl-status { border-radius:var(--radius); padding:1.5rem; margin-bottom:1.5rem; border:1px solid var(--border); }
+.bl-status.surplus { background:var(--accent-light); border-color:rgba(45,122,88,0.25); }
+.bl-status.deficit { background:var(--danger-light); border-color:rgba(192,57,43,0.2); }
+.bl-status.neutral { background:var(--surface-2); }
+.bl-status-top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:1rem; flex-wrap:wrap; }
+.bl-label { font-size:12px; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+.bl-label.surplus { color:var(--accent-mid); }
+.bl-label.deficit { color:var(--danger); }
+.bl-label.neutral { color:var(--text-3); }
+.bl-amount { font-family:var(--font-display); font-size:32px; letter-spacing:-1px; }
+.bl-amount.surplus { color:var(--accent); }
+.bl-amount.deficit { color:var(--danger); }
+.bl-amount.neutral { color:var(--text-3); }
+.bl-breakdown { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:1rem; padding-top:1rem; border-top:1px solid rgba(0,0,0,0.07); }
+.bl-stat { text-align:center; }
+.bl-stat-label { font-size:11px; color:var(--text-3); margin-bottom:3px; }
+.bl-stat-val { font-size:15px; font-weight:500; }
+.bl-refresh { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-3); margin-bottom:1.5rem; flex-wrap:wrap; }
+.bl-refresh button { padding:4px 12px; border:1px solid var(--border-md); border-radius:var(--radius-sm); background:transparent; font-size:12px; font-family:var(--font-body); color:var(--text-2); cursor:pointer; transition:all .15s; }
+.bl-refresh button:hover { background:var(--surface-2); }
+.btn-primary { background:var(--accent); color:#fff; border:none; border-radius:var(--radius-sm); padding:9px 18px; font-size:14px; font-family:var(--font-body); cursor:pointer; font-weight:500; transition:all .15s; }
+.btn-primary:hover { background:var(--accent-mid); }
+.btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
+.btn-sm { padding:6px 14px; border:1px solid var(--border-md); border-radius:var(--radius-sm); background:transparent; font-size:12px; font-family:var(--font-body); color:var(--text-2); cursor:pointer; transition:all .15s; }
+.btn-sm:hover { background:var(--surface-2); }
+.info-box { background:var(--surface-2); border-radius:var(--radius-sm); padding:12px 14px; font-size:13px; color:var(--text-2); line-height:1.6; margin-bottom:1.5rem; }
+.info-box strong { color:var(--text); }
+
+  /* Bank account link UI */
+  .blink-row { display:flex; align-items:center; gap:10px; padding:11px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:8px; background:var(--surface); flex-wrap:wrap; }
+  .blink-bank { display:flex; align-items:center; gap:8px; min-width:160px; flex:1; }
+  .blink-bank-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .blink-bank-info { min-width:0; }
+  .blink-bank-name { font-size:13px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .blink-bank-bal  { font-size:11px; color:var(--text-3); margin-top:1px; }
+  .blink-arrow { font-size:16px; color:var(--text-3); flex-shrink:0; }
+  .blink-select { flex:1; min-width:140px; padding:7px 10px; border:1px solid var(--border-md); border-radius:var(--radius-sm); font-size:13px; font-family:var(--font-body); color:var(--text); background:var(--surface-2); outline:none; }
+  .blink-select:focus { border-color:var(--accent); background:var(--surface); }
+  .blink-synced { font-size:11px; padding:2px 8px; border-radius:10px; background:var(--accent-light); color:var(--accent); font-weight:500; white-space:nowrap; }
+  .blink-diff { font-size:11px; color:var(--amber); font-weight:500; }
+
+/* Modal */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border-radius:var(--radius); padding:2rem; width:440px; max-width:calc(100vw - 2rem); box-shadow:0 8px 40px rgba(0,0,0,0.2); max-height:90vh; overflow-y:auto; }
+.modal-title { font-family:var(--font-display); font-size:22px; margin-bottom:1.5rem; color:var(--text); }
+.form-group { margin-bottom:1rem; }
+.form-group label { display:block; font-size:12px; font-weight:500; color:var(--text-2); margin-bottom:5px; text-transform:uppercase; letter-spacing:0.4px; }
+.form-group input,.form-group select { width:100%; padding:9px 12px; border:1px solid var(--border-md); border-radius:var(--radius-sm); font-size:14px; font-family:var(--font-body); color:var(--text); background:var(--surface); outline:none; transition:border-color .15s; }
+.form-group input:focus,.form-group select:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,79,58,0.1); }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.color-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+.color-swatch { width:26px; height:26px; border-radius:50%; cursor:pointer; border:3px solid transparent; transition:transform .1s,border-color .1s; outline:2px solid transparent; }
+.color-swatch:hover { transform:scale(1.15); }
+.color-swatch.selected { border-color:#fff; outline-color:var(--text); }
+.modal-actions { display:flex; gap:8px; margin-top:1.5rem; align-items:center; }
+.modal-actions .spacer { flex:1; }
+.btn { padding:9px 18px; border-radius:var(--radius-sm); font-size:14px; font-family:var(--font-body); cursor:pointer; border:1px solid var(--border-md); background:transparent; color:var(--text-2); transition:all .15s; }
+.btn:hover { background:var(--surface-2); }
+.btn-save { background:var(--accent); color:#fff; border-color:var(--accent); }
+.btn-save:hover { background:var(--accent-mid); }
+.btn-del { color:var(--danger); border-color:rgba(192,57,43,0.3); }
+.btn-del:hover { background:var(--danger-light); }
+
+/* Toast */
+.toast { position:fixed; bottom:2rem; right:2rem; background:var(--accent); color:#fff; padding:12px 20px; border-radius:var(--radius-sm); font-size:14px; font-weight:500; box-shadow:0 4px 20px rgba(0,0,0,0.2); transform:translateY(20px); opacity:0; transition:all .25s; z-index:2000; pointer-events:none; max-width:320px; }
+.toast.show { transform:translateY(0); opacity:1; }
+
+/* Auto-apply confirm modal */
+.apply-preview { background:var(--surface-2); border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:1rem; }
+.apply-preview-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:13px; border-bottom:1px solid var(--border); }
+.apply-preview-row:last-child { border-bottom:none; font-weight:500; }
+
+@media(max-width:700px){
+  .sidebar{width:100%;height:auto;position:relative;flex-direction:row;padding:1rem;gap:1rem;align-items:center;}
+  .nav{flex-direction:row;flex-wrap:wrap;}
+  .nav-section{display:none;}
+  .sidebar-footer{display:none;}
+  .main{margin-left:0;padding:1.5rem;}
+  .summary-grid,.two-col,.ctrl-grid,.bl-breakdown,.form-row{grid-template-columns:1fr;}
+  .layout{flex-direction:column;}
+  .sidebar-logo span{display:none;}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">Wealth<br><span>Personal Finance Tracker</span></div>
+    <nav class="nav">
+      <div class="nav-section">Wealth</div>
+      <button class="nav-item active" onclick="showPage('overview')">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        Overview
+      </button>
+      <button class="nav-item" onclick="showPage('projection')">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+        Projection
+      </button>
+      <button class="nav-item" onclick="showPage('accounts')">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+        Accounts
+      </button>
+      <button class="nav-item" onclick="showPage('history')">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        History
+      </button>
+      <div class="nav-section" style="margin-top:8px">Budget</div>
+      <button class="nav-item budget-link" onclick="showPage('budget')">
+        <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 6v6l4 2"/></svg>
+        Budget link
+        <span class="nav-badge" id="nav-budget-badge">—</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div style="margin-bottom:8px">Updated March 2026</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="exportData()" style="flex:1;padding:5px 0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:rgba(255,255,255,0.7);font-size:11px;font-family:var(--font-body);cursor:pointer;" title="Download all your data as a JSON backup file">⬇ Export</button>
+        <label style="flex:1;padding:5px 0;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:rgba(255,255,255,0.7);font-size:11px;font-family:var(--font-body);cursor:pointer;text-align:center;" title="Load a previously exported JSON backup file">⬆ Import<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div class="page active" id="page-overview">
+      <div class="page-header">
+        <div class="page-title">Net Worth</div>
+        <div class="page-sub">Your complete financial picture at a glance</div>
+      </div>
+      <div class="summary-grid">
+        <div class="metric-card featured">
+          <div class="metric-label">Total net worth</div>
+          <div class="metric-value" id="total-val">RM 0</div>
+          <div class="metric-badge" id="total-chg">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Total invested</div>
+          <div class="metric-value" id="invest-val">RM 0</div>
+          <div class="metric-badge">non-cash accounts</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Monthly net flow</div>
+          <div class="metric-value" id="flow-val">RM 0</div>
+          <div class="metric-badge" id="flow-badge">across all accounts</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">CC debt</div>
+          <div class="metric-value" id="cc-debt-val">RM 0</div>
+          <div class="metric-badge neg" id="cc-debt-badge">0 cards</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Loan debt</div>
+          <div class="metric-value" id="loan-debt-val">RM 0</div>
+          <div class="metric-badge neg" id="loan-debt-badge">0 loans</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Liquid net worth</div>
+          <div class="metric-value" id="liquid-nw-val">RM 0</div>
+          <div class="metric-badge" id="liquid-nw-badge">excl. illiquid assets</div>
+        </div>
+      </div>
+      <div class="full-col card">
+        <div class="card-title-row">
+          <div class="card-title">Net worth — real history</div>
+          <span style="font-size:12px;color:var(--text-3)" id="history-count-label"></span>
+        </div>
+        <div class="legend">
+          <span class="leg-item"><span class="leg-sq" style="background:#1d4b8f"></span>Total net worth</span>
+          <span class="leg-item"><span class="leg-sq" style="background:#1D9E75;opacity:0.5"></span>Snapshot point</span>
+        </div>
+        <div class="chart-wrap" style="height:240px"><canvas id="overviewChart"></canvas></div>
+      </div>
+      <div class="two-col">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="card">
+            <div class="card-title-row">
+              <div class="card-title">💧 Liquid assets</div>
+              <span style="font-size:13px;font-weight:500;color:var(--accent)" id="liquid-assets-total"></span>
+            </div>
+            <div class="account-list" id="overview-liquid"></div>
+          </div>
+          <div class="card" id="illiquid-card">
+            <div class="card-title-row">
+              <div class="card-title">🏠 Illiquid assets</div>
+              <span style="font-size:13px;font-weight:500;color:var(--text-2)" id="illiquid-assets-total"></span>
+            </div>
+            <div class="account-list" id="overview-illiquid"></div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="card" id="cc-liab-card">
+            <div class="card-title-row">
+              <div class="card-title" style="color:var(--danger)">💳 CC debt</div>
+              <span style="font-size:13px;font-weight:500;color:var(--danger)" id="overview-cc-total"></span>
+            </div>
+            <div class="account-list" id="overview-cc-list"></div>
+          </div>
+          <div class="card" id="loan-liab-card">
+            <div class="card-title-row">
+              <div class="card-title" style="color:var(--danger)">🏦 Loan debt</div>
+              <span style="font-size:13px;font-weight:500;color:var(--danger)" id="overview-loan-total"></span>
+            </div>
+            <div class="account-list" id="overview-loan-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Allocation</div>
+            <div class="chart-wrap" style="height:160px"><canvas id="allocChart"></canvas></div>
+            <div id="alloc-legend" style="margin-top:12px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECTION -->
+    <div class="page" id="page-projection">
+      <div class="page-header">
+        <div class="page-title">Wealth Projection</div>
+        <div class="page-sub">Compounding from your real net worth, with budget-linked contributions</div>
+      </div>
+
+      <div class="two-col" style="margin-bottom:1.5rem">
+        <div class="card">
+          <div class="card-title">Starting point</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--text-2)">Total assets</span><span id="proj-assets" style="font-weight:500"></span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:var(--text-2)">Total liabilities</span><span id="proj-liabs" style="color:var(--danger);font-weight:500"></span></div>
+            <div style="display:flex;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border)"><span style="font-weight:500">Net worth (start)</span><span id="proj-nw" style="font-weight:500;color:var(--accent)"></span></div>
+            <div style="display:flex;justify-content:space-between;padding-top:6px"><span style="color:var(--text-2)">Liquid net worth</span><span id="proj-lnw" style="color:var(--text-2)"></span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">ASB dividend settings</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="ff" style="display:flex;flex-direction:column;gap:4px">
+              <label style="font-size:11px;color:var(--text-2);font-weight:500;text-transform:uppercase;letter-spacing:0.4px">ASB account</label>
+              <select id="asb-acct-sel" style="padding:7px 10px;border:1px solid var(--border-md);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-body);color:var(--text);background:var(--surface-2);outline:none"></select>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;color:var(--text-2);font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Dividend rate (%)</label>
+                <input type="number" id="asb-rate" step="0.1" min="0" max="20" style="padding:7px 10px;border:1px solid var(--border-md);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-body);color:var(--text);background:var(--surface-2);outline:none;width:100%">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label style="font-size:11px;color:var(--text-2);font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Credit month</label>
+                <select id="asb-month" style="padding:7px 10px;border:1px solid var(--border-md);border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-body);color:var(--text);background:var(--surface-2);outline:none">
+                  ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+            <button class="btn-primary" style="font-size:13px;padding:7px 14px;align-self:flex-start" onclick="saveASBSettings()">Save &amp; apply dividend</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-grid">
+        <div class="ctrl">
+          <label>Monthly contribution <span id="contrib-from-budget" style="font-size:10px;color:var(--accent);font-weight:500"></span></label>
+          <div class="ctrl-row"><input type="range" id="contrib" min="100" max="10000" step="100" value="1000"><span class="ctrl-val" id="contrib-out">RM 1,000</span></div>
+        </div>
+        <div class="ctrl"><label>Annual return rate</label><div class="ctrl-row"><input type="range" id="rate" min="1" max="15" step="0.5" value="7"><span class="ctrl-val" id="rate-out">7%</span></div></div>
+        <div class="ctrl"><label>Time horizon</label><div class="ctrl-row"><input type="range" id="horizon" min="5" max="40" step="1" value="20"><span class="ctrl-val" id="horizon-out">20 yrs</span></div></div>
+        <div class="ctrl"><label>Annual contribution growth</label><div class="ctrl-row"><input type="range" id="cg" min="0" max="10" step="0.5" value="2"><span class="ctrl-val" id="cg-out">2%</span></div></div>
+      </div>
+      <div class="proj-highlight" id="proj-note">Adjust the sliders above to see your projection.</div>
+      <div class="card full-col">
+        <div class="card-title-row">
+          <div class="card-title">Projected wealth curve</div>
+          <div class="legend" style="margin-bottom:0">
+            <span class="leg-item"><span class="leg-sq" style="background:#1d4b8f"></span>Net worth</span>
+            <span class="leg-item"><span class="leg-sq" style="background:#a0b8d8"></span>Contributions only</span>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:260px"><canvas id="projChart"></canvas></div>
+      </div>
+      <div class="card"><div class="card-title">Milestones</div><div class="milestone-list" id="milestones"></div></div>
+    </div>
+
+    <!-- ACCOUNTS -->
+    <div class="page" id="page-accounts">
+      <div class="page-header">
+        <div class="page-title">All Accounts</div>
+        <div class="page-sub">Add, edit, or remove your savings and investments</div>
+      </div>
+      <div class="card full-col">
+        <div class="card-title-row">
+          <div class="card-title">Account list <span style="font-size:11px;font-weight:400;color:var(--text-3)" id="acct-count-label"></span></div>
+          <button class="btn-sm" onclick="resetAccounts()" title="Restore default accounts if list looks wrong">↺ Reset</button>
+        </div>
+        <div class="account-list" id="accounts-list"></div>
+        <button class="add-btn" onclick="openModal(null)">+ Add new account</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Monthly performance — change per account</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="perfChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="page" id="page-history">
+      <div class="page-header">
+        <div class="page-title">Monthly History</div>
+        <div class="page-sub">Take a snapshot at the end of each cycle to track how your wealth grows</div>
+      </div>
+      <div class="card full-col">
+        <div class="card-title-row">
+          <div class="card-title">Net worth over time</div>
+          <button class="btn-primary" style="font-size:13px;padding:7px 16px" onclick="takeSnapshot()">📸 Save this month</button>
+        </div>
+        <div id="hist-chart-wrap" style="height:240px;position:relative"><canvas id="histChart"></canvas></div>
+        <div id="hist-empty-msg" style="display:none;text-align:center;padding:3rem 1rem;color:var(--text-3)">
+          <div style="font-size:28px;margin-bottom:10px">📅</div>
+          <div style="font-size:14px;font-weight:500;color:var(--text-2);margin-bottom:6px">No snapshots yet</div>
+          <div style="font-size:13px;line-height:1.6">At the end of each month, click <strong>Save this month</strong> to record your net worth. After a few months you'll see your wealth trend here.</div>
+        </div>
+      </div>
+      <div class="card" id="hist-table-card">
+        <div class="card-title-row">
+          <div class="card-title">Month-by-month</div>
+          <button class="btn-sm" onclick="clearHistory()">Clear all</button>
+        </div>
+        <div id="hist-table"></div>
+      </div>
+    </div>
+
+    <!-- BUDGET LINK -->
+    <div class="page" id="page-budget">
+      <div class="page-header">
+        <div class="page-title">Budget Link</div>
+        <div class="page-sub">Auto-apply your monthly surplus to wealth accounts at cycle end</div>
+      </div>
+      <div id="bl-content"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Account Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add account</div>
+    <div class="form-row">
+      <div class="form-group"><label>Account name</label><input type="text" id="f-name" placeholder="e.g. Maybank savings"></div>
+      <div class="form-group"><label>Type</label><select id="f-type" onchange="if(this.value==='Property'||this.value==='Retirement')setLiquid(false);else setLiquid(true)"><option>Savings</option><option>Investment</option><option>Retirement</option><option>Cash</option><option>Property</option><option>Other</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Current balance (RM)</label><input type="number" id="f-balance" placeholder="0" min="0" step="100" oninput="updateMonthlyChange()"></div>
+      <div class="form-group" id="f-change-group">
+        <label>Monthly change <span style="font-size:10px;color:var(--accent);font-weight:500" id="f-change-auto-label"></span></label>
+        <input type="number" id="f-change" placeholder="0" step="50" readonly
+          style="background:var(--surface-2);color:var(--text-2);cursor:default"
+          title="Auto-calculated from balance change vs previous balance">
+      </div>
+    </div>
+    <div class="form-group"><label>Colour</label><div class="color-row" id="color-row"></div></div>
+    <div class="form-group" style="margin-bottom:0">
+      <label style="margin-bottom:8px;display:block">Liquidity</label>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="liq-btn" onclick="setLiquid(true)" style="flex:1;padding:8px;border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-body);cursor:pointer;border:1.5px solid var(--border-md);background:var(--surface-2);color:var(--text-2);transition:all .15s">&#128167; Liquid</button>
+        <button type="button" id="illiq-btn" onclick="setLiquid(false)" style="flex:1;padding:8px;border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-body);cursor:pointer;border:1.5px solid var(--border-md);background:var(--surface-2);color:var(--text-2);transition:all .15s">&#127968; Illiquid</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:6px">Illiquid assets (property, EPF) are excluded from liquid net worth.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-del" id="delete-btn" style="display:none" onclick="deleteAccount()">Delete</button>
+      <div class="spacer"></div>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-save" onclick="saveAccount()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Auto-apply confirm modal -->
+<div class="modal-overlay" id="apply-modal" onclick="if(event.target===this)closeApplyModal()">
+  <div class="modal">
+    <div class="modal-title">Confirm auto-apply</div>
+    <p style="font-size:14px;color:var(--text-2);margin-bottom:1rem;line-height:1.6">The following amounts will be added to your accounts based on your rules:</p>
+    <div class="apply-preview" id="apply-preview"></div>
+    <p style="font-size:12px;color:var(--text-3);margin-bottom:1rem">This will update account balances and log each change to your history.</p>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button class="btn" onclick="closeApplyModal()">Cancel</button>
+      <button class="btn btn-save" onclick="confirmAutoApply()">Apply now</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Custom confirm modal (replaces browser confirm() which breaks in file:// URLs) -->
+<div class="modal-overlay" id="confirm-modal" onclick="if(event.target===this)closeConfirm(false)">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title" id="confirm-title" style="font-size:18px">Are you sure?</div>
+    <p id="confirm-msg" style="font-size:14px;color:var(--text-2);margin-bottom:1.5rem;line-height:1.6"></p>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button class="btn" onclick="closeConfirm(false)">Cancel</button>
+      <button class="btn btn-del" id="confirm-ok-btn" onclick="closeConfirm(true)">Confirm</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Export modal -->
+<div class="modal-overlay" id="export-modal" onclick="if(event.target===this)closeExportModal()">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title" style="font-size:18px">Export data</div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:12px;line-height:1.6">
+      Copy the text below, then save it as a <code style="background:var(--surface-2);padding:1px 5px;border-radius:4px">.json</code> file on your computer (e.g. <code style="background:var(--surface-2);padding:1px 5px;border-radius:4px">wealth-tracker-data.json</code>). Use <strong>⬆ Import</strong> in the downloaded file to load it.
+    </p>
+    <textarea id="export-json" readonly
+      style="width:100%;height:180px;font-family:var(--font-body);font-size:11px;padding:10px;border:1px solid var(--border-md);border-radius:var(--radius-sm);background:var(--surface-2);color:var(--text);resize:none;outline:none;line-height:1.5"></textarea>
+    <div class="modal-actions" style="margin-top:12px">
+      <div class="spacer"></div>
+      <button class="btn" onclick="closeExportModal()">Close</button>
+      <button class="btn btn-save" onclick="copyExportJson()">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+
+// ── Custom confirm (replaces browser confirm() for file:// compatibility) ──
+let _confirmCallback = null;
+function showConfirm(title, msg, okLabel, cb) {
+  _confirmCallback = cb;
+  const m = document.getElementById('confirm-modal');
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  const btn = document.getElementById('confirm-ok-btn');
+  btn.textContent = okLabel || 'Confirm';
+  btn.className = okLabel && okLabel.toLowerCase().includes('clear') || okLabel && okLabel.toLowerCase().includes('reset') || okLabel && okLabel.toLowerCase().includes('delete')
+    ? 'btn btn-del' : 'btn btn-save';
+  if (m) m.classList.add('open');
+}
+function closeConfirm(ok) {
+  const m = document.getElementById('confirm-modal');
+  if (m) m.classList.remove('open');
+  if (ok && _confirmCallback) _confirmCallback();
+  _confirmCallback = null;
+}
+
+// ── Storage helpers ──
+const ld = (k,d) => { try { const v=localStorage.getItem(k); return v?JSON.parse(v):d; } catch { return d; } };
+const sv = (k,v) => { try { localStorage.setItem(k,JSON.stringify(v)); } catch {} };
+
+// ── Constants ──
+const COLORS = ['#1D9E75','#1d4b8f','#4a3580','#8f2d4e','#5a5753','#d85a30','#0f6e56','#ba7517','#a32d2d','#185fa5','#639922','#D4537E'];
+const ACCT_KEY    = 'wt_accounts';
+const LOG_KEY = 'wt_balance_log';
+const RULES_KEY = 'wt_auto_rules';
+const APPLIED_KEY = 'wt_applied_cycles';
+const LINKS_KEY   = 'wt_bank_links';    // {btBankIndex_str -> wtAccountId}
+const CC_KEY      = 'wt_cc_links';      // synced CC liabilities [{name,bal,color}]
+const LOAN_KEY    = 'wt_loan_debts';    // synced loan liabilities [{name,bal,pay,rate}]
+const ASB_KEY     = 'wt_asb_settings'; // {accountId, divRate, creditMonth}
+
+// ── State ──
+const DEFAULT_ACCOUNTS = [
+  { id:1, name:'Emergency fund',  type:'Savings',    balance:15000, monthChange:200,  color:'#1D9E75', liquid:true  },
+  { id:2, name:'EPF',             type:'Retirement', balance:42000, monthChange:350,  color:'#1d4b8f', liquid:false },
+  { id:3, name:'Stock portfolio', type:'Investment', balance:28500, monthChange:-420, color:'#4a3580', liquid:true  },
+  { id:4, name:'ASB',             type:'Investment', balance:18000, monthChange:150,  color:'#8f2d4e', liquid:true  },
+  { id:5, name:'Current account', type:'Cash',       balance:6800,  monthChange:-200, color:'#5a5753', liquid:true  },
+];
+let accounts = [];
+(function() {
+  const saved = ld(ACCT_KEY, null);
+  if (!saved || !Array.isArray(saved) || saved.length === 0) {
+    accounts = DEFAULT_ACCOUNTS.map(a => ({...a}));
+  } else {
+    accounts = saved;
+  }
+})();
+let nextId = accounts.length > 0 ? Math.max(...accounts.map(a => a.id), 5) + 1 : 6;
+let editingId = null;
+let selectedColor = COLORS[0];
+
+// Balance history: [{ts, label, accountId, accountName, color, delta, balance, note}]
+let balanceLog = ld(LOG_KEY, []).filter(e => e.monthKey || e.note);
+// Auto-apply rules: {accountId: pct} — what % of surplus goes to each account
+let autoRules = ld(RULES_KEY, {});
+// Applied cycles: Set of cycle keys already processed
+let appliedCycles = new Set(ld(APPLIED_KEY, []));
+
+// Bank account links: maps bt2_banks index (string) -> wealth account id
+let bankLinks = ld(LINKS_KEY, {});
+
+// CC liabilities synced from budget tracker
+let ccDebts = ld(CC_KEY, []);
+// Loan liabilities synced from budget tracker
+let loanDebts = ld(LOAN_KEY, []);
+// ASB dividend settings {accountId, divRate, creditMonth (1-12)}
+let asbSettings = ld(ASB_KEY, { accountId: null, divRate: 6.0, creditMonth: 1 });
+
+// Pending auto-apply distribution (computed before modal)
+let pendingApply = [];
+let currentBd = null;
+
+// Charts
+let overviewChartInst=null, allocChartInst=null, perfChartInst=null, histChartInst=null;
+
+// ── Formatters ──
+const fmt   = n => 'RM ' + Math.abs(Math.round(n)).toLocaleString('en-MY');
+const fmtF  = n => 'RM ' + Math.abs(n).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtChg= n => (n>=0?'+':'−')+'RM '+Math.abs(Math.round(n)).toLocaleString('en-MY');
+const fmtK  = v => { const a=Math.abs(v),s=v<0?'-':''; return a>=1e6?s+'RM '+(a/1e6).toFixed(1)+'M':a>=1000?s+'RM '+(a/1000).toFixed(0)+'k':s+'RM '+Math.round(a); };
+const esc   = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmtDate = ts => new Date(ts).toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'});
+const fmtDateTime = ts => new Date(ts).toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+// ── Balance log ──
+function saveLog()      { sv(LOG_KEY, balanceLog.slice(-500)); } // keep last 500 entries
+function saveAccounts() { sv(ACCT_KEY, accounts); }
+
+function logChange(accountId, accountName, color, delta, newBalance, note='manual') {
+  note = note || 'manual';
+  balanceLog.push({ ts: Date.now(), accountId, accountName, color, delta, balance: newBalance, note });
+  saveLog();
+}
+
+function takeSnapshot() {
+  const assets = totalAssets();
+  const liabilities = totalLiabilities();
+  const nw = netWorth();
+  const now = new Date();
+  const monthKey = now.toISOString().slice(0, 7); // YYYY-MM
+  const monthLabel = now.toLocaleDateString('en-MY', {month:'short', year:'numeric'});
+
+  // Replace existing snapshot for same month, or append
+  const existing = balanceLog.findIndex(s => s.monthKey === monthKey);
+  const snap = { ts: Date.now(), monthKey, monthLabel, assets, liabilities, netWorth: nw };
+  if (existing >= 0) balanceLog[existing] = snap;
+  else balanceLog.push(snap);
+
+  // Keep max 36 months, sorted oldest first
+  // Keep only valid monthly snapshots (purge any old-format entries without monthKey)
+  balanceLog = balanceLog.filter(s => s.monthKey);
+  balanceLog.sort((a,b) => (a.monthKey||'').localeCompare(b.monthKey||''));
+  balanceLog = balanceLog.slice(-36);
+  saveLog();
+
+  showToast('Snapshot saved — ' + fmt(nw));
+  renderHistory();
+  renderAll();
+}
+
+// ── Budget reader ──
+function readBudgetData() {
+  const salDay = ld('bt2_day',28), salary = ld('bt2_sal',0);
+  const exps = ld('bt2_exps',[]), incs = ld('bt2_incs',[]);
+  if (!salary && !exps.length && !incs.length) return null;
+
+  const now=new Date(), d=now.getDate(), sd=salDay;
+  let cs, ce;
+  if (d>=sd) { cs=new Date(now.getFullYear(),now.getMonth(),sd); ce=new Date(now.getFullYear(),now.getMonth()+1,sd-1); }
+  else        { cs=new Date(now.getFullYear(),now.getMonth()-1,sd); ce=new Date(now.getFullYear(),now.getMonth(),sd-1); }
+
+  const cycleKey = cs.toISOString().slice(0,7);
+  const cycleExps = exps.filter(e=>{const dd=new Date(e.date);return dd>=cs&&dd<=ce;});
+  const cycleIncs = incs.filter(i=>{const dd=new Date(i.date);return dd>=cs&&dd<=ce;});
+  const income  = cycleIncs.reduce((s,i)=>s+i.amt,0)||salary;
+  const spent   = cycleExps.filter(e=>e.cat!=='Savings').reduce((s,e)=>s+e.amt,0);
+  const saved   = cycleExps.filter(e=>e.cat==='Savings').reduce((s,e)=>s+e.amt,0);
+  const surplus = income - spent - saved;
+
+  const fd = dt => dt.toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'});
+  return { income, spent, saved, surplus, cycleKey, cycleStart:fd(cs), cycleEnd:fd(ce), cycleEndRaw:ce };
+}
+
+
+// ── Budget bank reader ──
+function readBudgetBanks() {
+  const banks = ld('bt2_banks', []);
+  // Convert to MYR using same logic as budget tracker
+  const CCY_DEFAULTS = {MYR:1,USD:4.70,GBP:5.95,SGD:3.50,IDR:0.00030};
+  return banks.map((b,i) => ({
+    ...b,
+    idx: i,
+    balMYR: (b.bal||0) * (b.ccy && b.ccy!=='MYR' ? (b.rate>0?b.rate:CCY_DEFAULTS[b.ccy]||1) : 1),
+  }));
+}
+
+// Sync all linked bank accounts → wealth account balances
+// Multiple budget banks can map to the same wealth account (balances are summed)
+function syncBankLinks() {
+  const banks = readBudgetBanks();
+  let changed = 0;
+
+  // Group budget banks by target wealth account id
+  const grouped = {}; // wtId -> [bank, ...]
+  Object.entries(bankLinks).forEach(([idxStr, wtId]) => {
+    if (!wtId) return;
+    const bank = banks[parseInt(idxStr)];
+    if (!bank) return;
+    if (!grouped[wtId]) grouped[wtId] = [];
+    grouped[wtId].push(bank);
+  });
+
+  // For each wealth account, set balance = sum of all linked banks
+  Object.entries(grouped).forEach(([wtId, linkedBanks]) => {
+    const acct = accounts.find(a => a.id === parseInt(wtId));
+    if (!acct) return;
+    const newBal = Math.round(linkedBanks.reduce((s, b) => s + b.balMYR, 0));
+    if (newBal !== acct.balance) {
+      const delta = newBal - acct.balance;
+      acct.balance = newBal;
+      changed++;
+    }
+  });
+
+  if (changed) saveAccounts();
+  return changed;
+}
+
+// Map a budget bank to an existing or new wealth account
+function linkBank(btIdx, wtId) {
+  if (wtId === '') {
+    delete bankLinks[btIdx];
+  } else if (wtId === '__new__') {
+    const banks = readBudgetBanks();
+    const bank = banks[parseInt(btIdx)];
+    if (!bank) return;
+    const BANK_TYPE_MAP = {'Savings':'Savings','Current':'Cash','Fixed Deposit':'Savings','e-Wallet':'Cash','Investment':'Investment','Other':'Other'};
+    const newAcct = {
+      id: nextId++,
+      name: bank.name,
+      type: BANK_TYPE_MAP[bank.type] || 'Cash',
+      balance: Math.round(bank.balMYR),
+      monthChange: 0,
+      color: COLORS[nextId % COLORS.length],
+    };
+    accounts.push(newAcct);
+    saveAccounts();
+    bankLinks[btIdx] = newAcct.id;
+
+  } else {
+    bankLinks[btIdx] = parseInt(wtId);
+  }
+  sv(LINKS_KEY, bankLinks);
+  syncBankLinks();
+  syncAndRender();
+  renderBudgetPage();
+}
+
+
+// ── CC debt reader ──
+function readBudgetCards() {
+  return ld('bt2_cards', []).map((c,i) => ({ ...c, idx: i }));
+}
+
+function syncCCDebts() {
+  const cards = readBudgetCards();
+  ccDebts = cards.map(c => ({
+    name: c.name,
+    bal:  Math.round(c.bal || 0),
+    rate: c.rate || 0,
+    pay:  c.pay  || 0,
+    color: '#c0392b',
+  }));
+  sv(CC_KEY, ccDebts);
+}
+
+// Read loans from budget tracker
+function readBudgetLoans() {
+  return ld('bt2_loans', []).map((l,i) => ({ ...l, idx: i }));
+}
+
+function syncLoanDebts() {
+  const loans = readBudgetLoans();
+  loanDebts = loans.map(l => ({
+    name: l.name,
+    bal:  Math.round(l.bal || 0),
+    orig: Math.round(l.orig || 0),
+    pay:  Math.round(l.pay || 0),
+    rate: l.rate || 0,
+    type: l.type || 'Loan',
+  })).filter(l => l.bal > 0);
+  sv(LOAN_KEY, loanDebts);
+}
+
+function totalLiabilities() {
+  const cc = ccDebts.reduce((s, c) => s + c.bal, 0);
+  const loans = loanDebts.reduce((s, l) => s + l.bal, 0);
+  return cc + loans;
+}
+
+function totalAssets() {
+  return accounts.reduce((s, a) => s + a.balance, 0);
+}
+
+function netWorth() {
+  return totalAssets() - totalLiabilities();
+}
+
+function liquidAssets() {
+  return accounts.filter(a => a.liquid !== false).reduce((s,a) => s + a.balance, 0);
+}
+
+function liquidNetWorth() {
+  return liquidAssets() - totalLiabilities();
+}
+
+
+// ── ASB dividend auto-credit ──
+// Called on page load and when ASB settings change
+function checkASBDividend() {
+  if (!asbSettings.accountId) return;
+  const acct = accounts.find(a => a.id === asbSettings.accountId);
+  if (!acct) return;
+
+  const now = new Date();
+  const thisMonth = now.getMonth() + 1; // 1-12
+  const thisYear  = now.getFullYear();
+  const creditKey = ASB_KEY + '_credited_' + thisYear;
+  const alreadyCredited = ld(creditKey, false);
+
+  if (thisMonth === asbSettings.creditMonth && !alreadyCredited) {
+    // Calculate dividend: divRate% of current balance
+    const dividend = Math.round(acct.balance * (asbSettings.divRate / 100));
+    if (dividend > 0) {
+      acct.balance += dividend;
+      saveAccounts();
+      sv(creditKey, true);
+      showToast('ASB dividend credited: +' + fmt(dividend) + ' (' + asbSettings.divRate + '%)');
+    }
+  }
+}
+
+function saveASBSettings() {
+  const idEl  = document.getElementById('asb-acct-sel');
+  const rateEl = document.getElementById('asb-rate');
+  const monEl  = document.getElementById('asb-month');
+  if (!idEl || !rateEl || !monEl) return;
+  asbSettings = {
+    accountId:   parseInt(idEl.value) || null,
+    divRate:     parseFloat(rateEl.value) || 6.0,
+    creditMonth: parseInt(monEl.value) || 1,
+  };
+  sv(ASB_KEY, asbSettings);
+  checkASBDividend();
+  syncAndRender();
+  initProjectionPage();
+  showToast('ASB dividend settings saved');
+}
+
+// ── Auto-apply ──
+function getTotalRulePct() {
+  return Object.values(autoRules).reduce((s,v)=>s+(parseFloat(v)||0),0);
+}
+
+function saveRules() {
+  // Read current inputs
+  accounts.forEach(a => {
+    const inp = document.getElementById('rule-inp-'+a.id);
+    if (inp) autoRules[a.id] = parseFloat(inp.value)||0;
+  });
+  sv(RULES_KEY, autoRules);
+}
+
+function openApplyConfirm() {
+  saveRules();
+  const total = getTotalRulePct();
+  if (total === 0) { showToast('Set at least one % rule before applying'); return; }
+  if (total > 100) { showToast('Rules exceed 100% — please adjust'); return; }
+
+  pendingApply = accounts
+    .filter(a => (autoRules[a.id]||0) > 0)
+    .map(a => ({ ...a, pct: autoRules[a.id]||0, amount: Math.round(bd.surplus * (autoRules[a.id]||0) / 100) }))
+    .filter(a => a.amount !== 0);
+
+  const rows = pendingApply.map(a =>
+    `<div class="apply-preview-row">
+      <span style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:${a.color};flex-shrink:0;display:inline-block"></span>${esc(a.name)} (${a.pct}%)</span>
+      <span style="color:var(--success);font-weight:500">+${fmtF(a.amount)}</span>
+    </div>`).join('');
+  const remainder = Math.round(bd.surplus * (100 - total) / 100);
+
+  const previewEl=document.getElementById('apply-preview');if(previewEl)previewEl.innerHTML = rows +
+    `<div class="apply-preview-row"><span>Unallocated (${100-total}%)</span><span style="color:var(--text-3)">${fmtF(remainder)}</span></div>
+     <div class="apply-preview-row"><span>Total surplus</span><span>${fmtF(bd.surplus)}</span></div>`;
+  const applyModal=document.getElementById('apply-modal');if(applyModal)applyModal.classList.add('open');
+}
+
+function closeApplyModal() { const m=document.getElementById('apply-modal');if(m)m.classList.remove('open'); }
+
+function confirmAutoApply() {
+  const bd = readBudgetData();
+  if (!bd) return;
+
+  pendingApply.forEach(rule => {
+    const a = accounts.find(x => x.id === rule.id);
+    if (!a) return;
+    const prev = a.balance;
+    a.balance = Math.max(0, a.balance + rule.amount);
+
+  });
+
+  // Mark cycle as applied
+  appliedCycles.add(bd.cycleKey);
+  sv(APPLIED_KEY, [...appliedCycles]);
+
+  saveAccounts();
+  closeApplyModal();
+  syncBankLinks();
+  syncCCDebts();
+  showToast('Surplus applied to ' + pendingApply.length + ' account' + (pendingApply.length>1?'s':''));
+  renderAll();
+  renderBudgetPage();
+  renderHistory();
+}
+
+// ── Charts ──
+function renderOverviewChart() {
+  if (overviewChartInst) overviewChartInst.destroy();
+
+  // Build chart from real history if available, else simulated
+  let labels=[], data=[], points=[];
+  const snapshots = balanceLog.filter(e=>e.note==='snapshot'||(e.note&&e.note.startsWith('auto-apply')));
+
+  if (snapshots.length >= 2) {
+    // Real data: group by date, show total net worth per snapshot date
+    const byDate = {};
+    snapshots.forEach(e => {
+      const d = new Date(e.ts).toLocaleDateString('en-MY',{month:'short',year:'numeric'});
+      if (!byDate[d]) byDate[d] = { total:0, count:0, ts:e.ts };
+      byDate[d].total += e.balance;
+    });
+    labels = Object.keys(byDate);
+    data   = labels.map(d=>byDate[d].total);
+    points = data.map(()=>4);
+  } else {
+    // Simulated from current balances
+    const MONTHS = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+    labels = MONTHS;
+    const totals = MONTHS.map((_,i) => {
+      return accounts.reduce((s,a) => s + Math.max(0, a.balance - a.monthChange*(7-i)), 0);
+    });
+    totals[7] = accounts.reduce((s,a)=>s+a.balance,0);
+    data   = totals;
+    points = totals.map(()=>2);
+  }
+
+  const hcl=document.getElementById('history-count-label');if(hcl)hcl.textContent =
+    snapshots.length >= 2 ? snapshots.length + ' real data points' : 'Simulated — take snapshots for real data';
+
+  overviewChartInst = new Chart(document.getElementById('overviewChart'), {
+    type:'line',
+    data:{ labels, datasets:[{
+      label:'Net worth', data,
+      borderColor:'#1d4b8f', backgroundColor:'#1d4b8f18',
+      fill:true, tension:0.4, borderWidth:2.5, pointRadius:points, pointHoverRadius:6,
+      pointBackgroundColor:'#1d4b8f', pointBorderColor:'#fff', pointBorderWidth:2,
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.parsed.y)}}},
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11,family:'DM Sans'},color:'#a09d97'}},
+        y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11,family:'DM Sans'},color:'#a09d97',callback:fmtK}}
+      }
+    }
+  });
+}
+
+function renderAllocChart() {
+  if (allocChartInst) allocChartInst.destroy();
+  const total = accounts.reduce((s,a)=>s+a.balance,0);
+  allocChartInst = new Chart(document.getElementById('allocChart'),{
+    type:'doughnut',
+    data:{labels:accounts.map(a=>a.name),datasets:[{data:accounts.map(a=>a.balance),backgroundColor:accounts.map(a=>a.color),borderWidth:3,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+(total>0?(ctx.parsed/total*100).toFixed(1):0)+'%'}}},cutout:'65%'}
+  });
+}
+
+function renderPerfChart() {
+  if (perfChartInst) perfChartInst.destroy();
+  perfChartInst = new Chart(document.getElementById('perfChart'),{
+    type:'bar',
+    data:{labels:accounts.map(a=>a.name),datasets:[{data:accounts.map(a=>a.monthChange),backgroundColor:accounts.map(a=>a.monthChange>=0?'#1D9E75cc':'#c0392bcc'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmtChg(ctx.parsed.y)}}},scales:{x:{grid:{display:false},ticks:{font:{size:11,family:'DM Sans'},color:'#a09d97'}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11,family:'DM Sans'},color:'#a09d97',callback:fmtK}}}}
+  });
+}
+
+// ── History page ──
+function renderHistory() {
+  if (histChartInst) { histChartInst.destroy(); histChartInst = null; }
+
+  const snaps = balanceLog.filter(s => s.monthKey); // only proper monthly snapshots
+  const chartWrap = document.getElementById('hist-chart-wrap');
+  const emptyMsg  = document.getElementById('hist-empty-msg');
+  const tableCard = document.getElementById('hist-table-card');
+  const histCanvas= document.getElementById('histChart');
+
+  if (!snaps.length) {
+    if (chartWrap) chartWrap.style.display = 'none';
+    if (emptyMsg)  emptyMsg.style.display  = 'block';
+    if (tableCard) tableCard.style.display = 'none';
+    return;
+  }
+
+  if (chartWrap) chartWrap.style.display = 'block';
+  if (emptyMsg)  emptyMsg.style.display  = 'none';
+  if (tableCard) tableCard.style.display = 'block';
+
+  // Chart — net worth + assets + liabilities
+  if (histCanvas) {
+    const labels  = snaps.map(s => s.monthLabel);
+    const nwData  = snaps.map(s => s.netWorth);
+    const aData   = snaps.map(s => s.assets);
+    const lData   = snaps.map(s => -s.liabilities);
+
+    histChartInst = new Chart(histCanvas, {
+      type: 'line',
+      data: { labels, datasets: [
+        { label:'Net worth', data:nwData, borderColor:'#1d4b8f', backgroundColor:'#1d4b8f15', fill:true, tension:0.4, borderWidth:2.5, pointRadius:4, pointHoverRadius:6, pointBackgroundColor:'#1d4b8f', pointBorderColor:'#fff', pointBorderWidth:2 },
+        { label:'Assets',    data:aData,  borderColor:'#1D9E75', backgroundColor:'transparent', fill:false, tension:0.4, borderWidth:1.5, pointRadius:3, borderDash:[4,3] },
+        { label:'Liabilities', data:lData, borderColor:'#c0392b', backgroundColor:'transparent', fill:false, tension:0.4, borderWidth:1.5, pointRadius:3, borderDash:[4,3] },
+      ]},
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins: {
+          legend: { display:false },
+          tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + fmt(Math.abs(ctx.parsed.y)) } }
+        },
+        scales: {
+          x: { grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11,family:'DM Sans'},color:'#a09d97'} },
+          y: { grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11,family:'DM Sans'},color:'#a09d97',callback:fmtK} }
+        }
+      }
+    });
+  }
+
+  // Chart legend
+  const legendHtml = `
+    <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)"><span style="width:18px;height:2.5px;background:#1d4b8f;display:inline-block;border-radius:2px"></span>Net worth</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)"><span style="width:18px;height:2px;background:#1D9E75;display:inline-block;border-radius:2px;opacity:0.7"></span>Assets</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)"><span style="width:18px;height:2px;background:#c0392b;display:inline-block;border-radius:2px;opacity:0.7"></span>Liabilities</span>
+    </div>`;
+  const legendEl = document.getElementById('hist-chart-wrap');
+  // Append legend after chart wrap if not already there
+  if (legendEl && !document.getElementById('hist-legend')) {
+    const div = document.createElement('div');
+    div.id = 'hist-legend';
+    div.innerHTML = legendHtml;
+    legendEl.parentNode.insertBefore(div, legendEl.nextSibling);
+  }
+
+  // Month-by-month table
+  const tableEl = document.getElementById('hist-table');
+  if (!tableEl) return;
+
+  const rows = [...snaps].reverse().map((s, i, arr) => {
+    const prev = arr[i + 1]; // previous month (array is reversed so next index = older)
+    const nwChange = prev ? s.netWorth - prev.netWorth : null;
+    const changeStr = nwChange === null ? '—'
+      : (nwChange >= 0 ? '<span style="color:var(--success)">+' : '<span style="color:var(--danger)">') + fmt(Math.abs(nwChange)) + (nwChange >= 0 ? '' : '') + '</span>';
+    const pctChange = prev && prev.netWorth !== 0 ? ((nwChange / Math.abs(prev.netWorth)) * 100).toFixed(1) : null;
+    const pctStr = pctChange !== null
+      ? `<span style="font-size:11px;color:var(--text-3);margin-left:4px">${pctChange >= 0 ? '+' : ''}${pctChange}%</span>`
+      : '';
+    return `<div style="display:grid;grid-template-columns:90px 1fr 1fr 1fr 1fr;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;gap:8px">
+      <div style="font-weight:500;color:var(--text)">${s.monthLabel}</div>
+      <div style="color:var(--success)">${fmt(s.assets)}</div>
+      <div style="color:var(--danger)">${s.liabilities ? '−'+fmt(s.liabilities) : '—'}</div>
+      <div style="font-weight:500;color:var(--text)">${fmt(s.netWorth)}</div>
+      <div>${changeStr}${pctStr}</div>
+    </div>`;
+  }).join('');
+
+  tableEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:90px 1fr 1fr 1fr 1fr;padding:8px 14px;border-bottom:1px solid var(--border);gap:8px">
+      <div style="font-size:11px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Month</div>
+      <div style="font-size:11px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Assets</div>
+      <div style="font-size:11px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Liabilities</div>
+      <div style="font-size:11px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Net worth</div>
+      <div style="font-size:11px;font-weight:500;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">vs prev month</div>
+    </div>
+    ${rows}`;
+}
+
+// ── Budget link page ──
+function renderBudgetPage() {
+  const bd = readBudgetData();
+  syncBankLinks();
+  syncCCDebts();
+  syncLoanDebts();
+  currentBd = bd;
+  const badge = document.getElementById('nav-budget-badge');
+  const el = document.getElementById('bl-content');
+
+  if (!bd) {
+    if(badge){badge.textContent='—'; badge.className='nav-badge';}
+    if(el) el.innerHTML=`<div class="card" style="text-align:center;padding:3rem 1rem">
+      <div style="font-size:32px;margin-bottom:12px">🔗</div>
+      <div style="font-size:15px;font-weight:500;color:var(--text-2);margin-bottom:8px">No budget data found</div>
+      <div style="font-size:13px;color:var(--text-3);line-height:1.6">Open <strong>budget_tracker.html</strong> in the same browser and log some income or expenses.<br>Both files share data automatically via browser storage.</div>
+    </div>`;
+    return;
+  }
+
+  // Sidebar badge
+  if (bd.surplus>0){badge.textContent='+'+fmtK(bd.surplus);badge.className='nav-badge surplus';}
+  else if (bd.surplus<0){badge.textContent=fmtK(bd.surplus);badge.className='nav-badge deficit';}
+  else{badge.textContent='RM 0';badge.className='nav-badge';}
+
+  const isApplied = appliedCycles.has(bd.cycleKey);
+  const sc = bd.surplus>0?'surplus':bd.surplus<0?'deficit':'neutral';
+  const surplusStr = bd.surplus>=0 ? fmtF(bd.surplus) : '−'+fmtF(Math.abs(bd.surplus));
+
+  // Build rule inputs
+  const totalPct = getTotalRulePct();
+  const ruleRows = accounts.map(a => `
+    <div class="rule-row">
+      <div class="rule-dot" style="background:${a.color}"></div>
+      <div class="rule-name">${esc(a.name)}</div>
+      <div style="font-size:12px;color:var(--text-3);margin-right:4px">${esc(a.type)}</div>
+      <div class="rule-pct-wrap">
+        <input type="number" id="rule-inp-${a.id}" min="0" max="100" step="5" value="${autoRules[a.id]||0}" oninput="updateRuleTotal()">
+        <span>%</span>
+      </div>
+    </div>`).join('');
+
+  // Build bank link rows
+  const budgetBanks = readBudgetBanks();
+  const BANK_DOT_COLORS = {Savings:'#2d6645',Current:'#1d6fa4','Fixed Deposit':'#7b2d8b','e-Wallet':'#c55a11',Investment:'#1c3a28',Other:'#6b6560'};
+
+  function makeAcctOptions(selectedId) {
+    return `<option value=""${!selectedId?' selected':''}>— Not linked —</option>` +
+      accounts.map(a=>`<option value="${a.id}"${a.id===selectedId?' selected':''}>${esc(a.name)}</option>`).join('') +
+      `<option value="__new__">+ Create new account</option>`;
+  }
+
+  const bankLinkRows = budgetBanks.length === 0
+    ? `<div style="text-align:center;padding:1.5rem;color:var(--text-3);font-size:13px">No bank accounts in budget tracker yet. Add them in budget_tracker.html → Accounts tab.</div>`
+    : budgetBanks.map(bank => {
+        const linkedId = bankLinks[bank.idx] || null;
+        const linkedAcct = linkedId ? accounts.find(a => a.id === linkedId) : null;
+
+        // Check if this bank's balance is already reflected in the linked account
+        // (account may aggregate multiple banks so we just show the bank's own balance)
+        let statusBadge = '';
+        if (linkedAcct) {
+          // Find all banks linked to this wealth account
+          const allLinkedBanks = Object.entries(bankLinks)
+            .filter(([,wId]) => wId === linkedId)
+            .map(([i]) => budgetBanks[parseInt(i)])
+            .filter(Boolean);
+          const aggregateSum = Math.round(allLinkedBanks.reduce((s,b) => s + b.balMYR, 0));
+          const inSync = aggregateSum === linkedAcct.balance;
+          statusBadge = inSync
+            ? `<span class="blink-synced">✓ In sync</span>`
+            : `<span class="blink-diff">${aggregateSum > linkedAcct.balance ? '+' : ''}${fmtF(aggregateSum - linkedAcct.balance)} diff</span>`;
+        }
+
+        return `<div class="blink-row">
+          <div class="blink-bank">
+            <div class="blink-bank-dot" style="background:${BANK_DOT_COLORS[bank.type]||'#6b6560'}"></div>
+            <div class="blink-bank-info">
+              <div class="blink-bank-name">${esc(bank.name)}</div>
+              <div class="blink-bank-bal">${bank.type} · ${fmtF(bank.balMYR)}</div>
+            </div>
+          </div>
+          <div class="blink-arrow">→</div>
+          <select class="blink-select" onchange="linkBank(${bank.idx}, this.value)">
+            ${makeAcctOptions(linkedId)}
+          </select>
+          ${statusBadge}
+        </div>`;
+      }).join('');
+
+  el.innerHTML = `
+    <div class="bl-refresh">
+      <span>Cycle: ${bd.cycleStart} – ${bd.cycleEnd}${isApplied?' · <strong style="color:var(--success)">✓ Applied this cycle</strong>':''}</span>
+      <button onclick="renderBudgetPage()">↻ Refresh</button>
+    </div>
+
+    <div class="card full-col" style="margin-bottom:1.5rem">
+      <div class="card-title-row">
+        <div class="card-title">Bank account links</div>
+        <button class="btn-sm" onclick="syncAndRender();renderBudgetPage();showToast('Balances synced from budget tracker')">↻ Sync now</button>
+      </div>
+      <div class="info-box" style="margin-bottom:1rem">
+        Link each bank account from your <strong>budget tracker</strong> to a wealth account. Balances sync automatically every time you open this page or click Refresh. Changes are logged to your history.
+      </div>
+      ${bankLinkRows}
+    </div>
+
+    <div class="card full-col" style="margin-bottom:1.5rem">
+      <div class="card-title-row">
+        <div class="card-title">Credit card liabilities</div>
+        <button class="btn-sm" onclick="syncCCDebts();renderAll();renderBudgetPage();showToast('CC balances synced')">↻ Sync now</button>
+      </div>
+      <div class="info-box" style="margin-bottom:1rem">
+        CC balances are pulled live from your <strong>budget tracker</strong> and subtracted from your net worth automatically. They appear as liabilities on the Overview page.
+      </div>
+      ${ccDebts.length === 0
+        ? `<div style="text-align:center;padding:1.5rem;color:var(--text-3);font-size:13px">No credit cards in budget tracker yet. Add them in budget_tracker.html → Accounts tab.</div>`
+        : `<div style="display:flex;flex-direction:column;gap:8px">
+            ${ccDebts.map(c => {
+              // Payoff calc
+              const r = c.rate/100/12;
+              let months = 0;
+              if (c.bal>0 && c.pay>0) {
+                if (r===0) months=Math.ceil(c.bal/c.pay);
+                else if (c.pay <= c.bal*r) months=999;
+                else months=Math.ceil(-Math.log(1-(c.bal*r/c.pay))/Math.log(1+r));
+              }
+              const payoffStr = months===0?'Paid off':months===999?'Min payment too low':months>120?Math.ceil(months/12)+' yrs':months+' mo';
+              return `<div class="account-row" style="border-color:rgba(192,57,43,0.2)">
+                <div class="acct-dot" style="background:#c0392b"></div>
+                <div class="acct-info">
+                  <div class="acct-name">${esc(c.name)}</div>
+                  <div class="acct-type">${c.rate}% p.a. · Payoff: ${payoffStr}</div>
+                </div>
+                <div class="acct-right">
+                  <div class="acct-bal" style="color:var(--danger)">−${fmt(c.bal)}</div>
+                  <div class="acct-chg">RM ${Math.round(c.pay).toLocaleString('en-MY')}/mo</div>
+                </div>
+              </div>`;
+            }).join('')}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--danger-light);border-radius:var(--radius-sm);margin-top:4px">
+              <span style="font-size:13px;color:var(--danger);font-weight:500">Total CC debt</span>
+              <span style="font-size:15px;font-weight:500;color:var(--danger)">−${fmt(ccDebts.reduce((s,c)=>s+c.bal,0))}</span>
+            </div>
+          </div>`
+      }
+    </div>
+
+    <div class="card full-col" style="margin-bottom:1.5rem">
+      <div class="card-title-row">
+        <div class="card-title">Loan liabilities</div>
+        <button class="btn-sm" onclick="syncLoanDebts();renderAll();renderBudgetPage();showToast('Loans synced')">↻ Sync now</button>
+      </div>
+      <div class="info-box" style="margin-bottom:1rem">
+        Loan balances are pulled from your <strong>budget tracker</strong> loan payoff tracker and included in your net worth as liabilities automatically.
+      </div>
+      ${loanDebts.length === 0
+        ? `<div style="text-align:center;padding:1.5rem;color:var(--text-3);font-size:13px">No loans in budget tracker yet. Add them in budget_tracker.html → Accounts tab → Loan payoff tracker.</div>`
+        : `<div style="display:flex;flex-direction:column;gap:8px">
+            ${loanDebts.map(l => `
+              <div class="account-row" style="border-color:rgba(192,57,43,0.2)">
+                <div class="acct-dot" style="background:#a32d2d"></div>
+                <div class="acct-info">
+                  <div class="acct-name">${esc(l.name)} <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#fdecea;color:#c0392b;font-weight:500">${esc(l.type)}</span></div>
+                  <div class="acct-type">${l.pay?'RM '+Math.round(l.pay).toLocaleString('en-MY')+'/mo':''}</div>
+                </div>
+                <div class="acct-right">
+                  <div class="acct-bal" style="color:var(--danger)">−${fmt(l.bal)}</div>
+                  ${l.orig ? `<div class="acct-type" style="color:var(--text-3)">orig: ${fmt(l.orig)}</div>` : ''}
+                </div>
+              </div>`).join('')}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:var(--danger-light);border-radius:var(--radius-sm);margin-top:4px">
+              <span style="font-size:13px;color:var(--danger);font-weight:500">Total loan debt</span>
+              <span style="font-size:15px;font-weight:500;color:var(--danger)">−${fmt(loanDebts.reduce((s,l)=>s+l.bal,0))}</span>
+            </div>
+          </div>`
+      }
+    </div>
+    <div class="bl-status ${sc}">
+      <div class="bl-status-top">
+        <div>
+          <div class="bl-label ${sc}">${bd.surplus>0?'Budget surplus':bd.surplus<0?'Budget deficit':'Break even'}</div>
+          <div class="bl-amount ${sc}">${surplusStr}</div>
+        </div>
+        <div style="font-size:13px;color:var(--text-2);line-height:1.6;max-width:240px;text-align:right">
+          ${bd.surplus>0?'Allocate this surplus to your wealth accounts below using percentage rules.':bd.surplus<0?'You\'re over budget this cycle. Consider reducing spending next month.':'Income and expenses are balanced this cycle.'}
+        </div>
+      </div>
+      <div class="bl-breakdown">
+        <div class="bl-stat"><div class="bl-stat-label">Income</div><div class="bl-stat-val" style="color:var(--success)">${fmtF(bd.income)}</div></div>
+        <div class="bl-stat"><div class="bl-stat-label">Spent</div><div class="bl-stat-val" style="color:var(--danger)">${fmtF(bd.spent)}</div></div>
+        <div class="bl-stat"><div class="bl-stat-label">Saved (logged)</div><div class="bl-stat-val" style="color:var(--accent)">${fmtF(bd.saved)}</div></div>
+      </div>
+    </div>
+
+    <div class="card full-col">
+      <div class="card-title-row">
+        <div class="card-title">Auto-apply rules</div>
+        <div style="font-size:12px;color:var(--text-3)">Set % of surplus per account</div>
+      </div>
+      <div class="info-box">
+        Assign a percentage of the <strong>${bd.surplus>=0?'surplus of '+fmtF(bd.surplus):'deficit'}</strong> to each account. When you click <strong>Apply to accounts</strong>, each account's balance is updated and the change is logged to history automatically. Rules are saved for future cycles.
+      </div>
+      ${ruleRows}
+      <div class="rule-total">
+        <span class="rule-total-label">Total allocated</span>
+        <span class="rule-total-val ${totalPct>100?'over':totalPct===100?'ok':''}" id="rule-total-val">${totalPct}% ${totalPct>100?'(over 100%)':totalPct===100?'(fully allocated)':'of surplus'}</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:1rem;flex-wrap:wrap">
+        <button class="btn-primary" ${bd.surplus<=0||isApplied?'disabled':''} onclick="saveRules();openApplyConfirm()">
+          ${isApplied?'✓ Already applied this cycle':'⚡ Apply to accounts'}
+        </button>
+        <button class="btn-sm" onclick="saveRules();showToast('Rules saved')">Save rules</button>
+        ${isApplied?`<button class="btn-sm" style="color:var(--danger)" onclick="appliedCycles.delete('${bd.cycleKey}');sv(APPLIED_KEY,[...appliedCycles]);renderBudgetPage()">Re-apply</button>`:''}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Applied history</div>
+      <div id="bl-hist-list">
+        ${balanceLog.filter(e=>e.note&&e.note.startsWith('auto-apply')).length===0
+          ? '<div style="text-align:center;padding:1.5rem;color:var(--text-3);font-size:13px">No auto-applies yet.</div>'
+          : [...balanceLog].filter(e=>e.note&&e.note.startsWith('auto-apply')).reverse().slice(0,20).map(e=>`
+            <div class="hist-row">
+              <div class="hist-dot" style="background:${e.color}"></div>
+              <div class="hist-info"><div class="hist-name">${esc(e.accountName)}</div><div class="hist-meta">${fmtDateTime(e.ts)} · ${esc(e.note)}</div></div>
+              <div class="hist-amt pos">+${fmtF(e.delta)}</div>
+            </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function updateRuleTotal() {
+  let t = 0;
+  accounts.forEach(a=>{ const inp=document.getElementById('rule-inp-'+a.id); if(inp) t+=parseFloat(inp.value)||0; });
+  const el=document.getElementById('rule-total-val');
+  if(el){ el.textContent=t+'% '+(t>100?'(over 100%)':t===100?'(fully allocated)':'of surplus'); el.className='rule-total-val '+(t>100?'over':t===100?'ok':''); }
+}
+
+// ── Safe getElementById helper ──
+function gel(id) { return document.getElementById(id); }
+function setHtml(id, html) { const el=gel(id); if(el) el.innerHTML=html; }
+function setText(id, txt) { const el=gel(id); if(el) el.textContent=txt; }
+
+// ── Main render ──
+function renderAll() {
+  const total = accounts.reduce((s,a)=>s+a.balance,0);
+  const totalChange = accounts.reduce((s,a)=>s+a.monthChange,0);
+  const invested = accounts.filter(a=>!['Cash','Savings'].includes(a.type)).reduce((s,a)=>s+a.balance,0);
+
+  const liabilities = totalLiabilities();
+  const nw = totalAssets() - liabilities;
+
+  setText('total-val', fmt(nw));
+  const chgEl=gel('total-chg');
+  if(chgEl){chgEl.textContent=fmt(total)+' assets · '+fmt(liabilities)+' liabilities';chgEl.className='metric-badge'+(nw<0?' neg':'');}
+  setText('invest-val', fmt(invested));
+  const computedChange = computeMonthlyChange();
+  const displayChange = computedChange !== null ? computedChange : totalChange;
+  setText('flow-val', fmtChg(displayChange));
+  const fb=gel('flow-badge');
+  if(fb){
+    fb.textContent = computedChange !== null
+      ? (displayChange>=0?'net positive':'net negative')+' · from snapshots'
+      : (totalChange>=0?'net positive':'net negative')+' · estimated';
+    fb.className='metric-badge'+(displayChange<0?' neg':'');
+  }
+  // CC debt card
+  const ccTotal = ccDebts.reduce((s,c) => s + c.bal, 0);
+  setText('cc-debt-val', fmt(ccTotal));
+  const ccBadge=gel('cc-debt-badge');
+  if(ccBadge){ccBadge.textContent=ccDebts.length+' card'+(ccDebts.length===1?'':'s');ccBadge.className='metric-badge'+(ccTotal>0?' neg':'');}
+
+  // Loan debt card
+  const loanTotal = loanDebts.reduce((s,l) => s + l.bal, 0);
+  setText('loan-debt-val', fmt(loanTotal));
+  const loanBadge=gel('loan-debt-badge');
+  if(loanBadge){loanBadge.textContent=loanDebts.length+' loan'+(loanDebts.length===1?'':'s');loanBadge.className='metric-badge'+(loanTotal>0?' neg':'');}
+
+  const lnw = liquidNetWorth();
+  const illiquidCount = accounts.filter(a => a.liquid === false).length;
+  setText('liquid-nw-val', fmt(lnw));
+  const lnwBadge = gel('liquid-nw-badge');
+  if(lnwBadge) {
+    lnwBadge.textContent = illiquidCount > 0 ? illiquidCount+' illiquid account'+(illiquidCount===1?'':'s')+' excluded' : 'all accounts liquid';
+    lnwBadge.className = 'metric-badge'+(lnw<0?' neg':'');
+  }
+
+  // ── Overview breakdown ──
+  const liquidAccts   = accounts.filter(a => a.liquid !== false);
+  const illiquidAccts = accounts.filter(a => a.liquid === false);
+
+  function acctRow(a) {
+    return `<div class="account-row">
+      <div class="acct-dot" style="background:${a.color}"></div>
+      <div class="acct-info"><div class="acct-name">${esc(a.name)}</div><div class="acct-type">${a.type}</div></div>
+      <div class="acct-right"><div class="acct-bal">${fmt(a.balance)}</div></div>
+    </div>`;
+  }
+
+  // Liquid assets
+  setText('liquid-assets-total', fmt(liquidAccts.reduce((s,a)=>s+a.balance,0)));
+  setHtml('overview-liquid', liquidAccts.length ? liquidAccts.map(acctRow).join('') :
+    '<div style="padding:12px 14px;font-size:13px;color:var(--text-3)">No liquid accounts</div>');
+
+  // Illiquid assets
+  const illiquidCard = gel('illiquid-card');
+  if (illiquidAccts.length === 0) {
+    if (illiquidCard) illiquidCard.style.display = 'none';
+  } else {
+    if (illiquidCard) illiquidCard.style.display = 'block';
+    setText('illiquid-assets-total', fmt(illiquidAccts.reduce((s,a)=>s+a.balance,0)));
+    setHtml('overview-illiquid', illiquidAccts.map(acctRow).join(''));
+  }
+
+  // CC debt
+  const ccCard = gel('cc-liab-card');
+  if (ccDebts.length === 0) {
+    if (ccCard) ccCard.style.display = 'none';
+  } else {
+    if (ccCard) ccCard.style.display = 'block';
+    const ccTot = ccDebts.reduce((s,c)=>s+c.bal,0);
+    setText('overview-cc-total', '−'+fmt(ccTot));
+    setHtml('overview-cc-list', ccDebts.map(c=>`
+      <div class="account-row" style="border-color:rgba(192,57,43,0.12)">
+        <div class="acct-dot" style="background:#c0392b"></div>
+        <div class="acct-info"><div class="acct-name">${esc(c.name)}</div><div class="acct-type">${c.rate}% p.a. · RM${Math.round(c.pay).toLocaleString('en-MY')}/mo</div></div>
+        <div class="acct-right"><div class="acct-bal" style="color:var(--danger)">−${fmt(c.bal)}</div></div>
+      </div>`).join(''));
+  }
+
+  // Loan debt
+  const loanCard = gel('loan-liab-card');
+  if (loanDebts.length === 0) {
+    if (loanCard) loanCard.style.display = 'none';
+  } else {
+    if (loanCard) loanCard.style.display = 'block';
+    const loanTot = loanDebts.reduce((s,l)=>s+l.bal,0);
+    setText('overview-loan-total', '−'+fmt(loanTot));
+    setHtml('overview-loan-list', loanDebts.map(l=>`
+      <div class="account-row" style="border-color:rgba(192,57,43,0.12)">
+        <div class="acct-dot" style="background:#a32d2d"></div>
+        <div class="acct-info"><div class="acct-name">${esc(l.name)}</div><div class="acct-type">${esc(l.type)}${l.pay?' · RM'+Math.round(l.pay).toLocaleString('en-MY')+'/mo':''}</div></div>
+        <div class="acct-right">
+          <div class="acct-bal" style="color:var(--danger)">−${fmt(l.bal)}</div>
+          ${l.orig ? `<div class="acct-type" style="color:var(--text-3)">orig: ${fmt(l.orig)}</div>` : ''}
+        </div>
+      </div>`).join(''));
+  }
+
+  // Accounts page list (with edit/delete + linked badge + liquid toggle)
+  const linkedBankNames = {};
+  Object.entries(bankLinks).forEach(([btIdx, wtId]) => {
+    const allBanks = readBudgetBanks();
+    const bank = allBanks[parseInt(btIdx)];
+    if (bank) linkedBankNames[wtId] = bank.name;
+  });
+
+  setHtml('accounts-list', accounts.map(a => {
+    const linkedBank = linkedBankNames[a.id];
+    return `<div class="account-row">
+      <div class="acct-dot" style="background:${a.color}"></div>
+      <div class="acct-info">
+        <div class="acct-name">${esc(a.name)}${linkedBank ? ` <span style="font-size:10px;padding:1px 6px;border-radius:8px;background:var(--accent-light);color:var(--accent);font-weight:500;vertical-align:middle">&#128279; ${esc(linkedBank)}</span>` : ''}</div>
+        <div class="acct-type">${a.type} <span onclick="toggleLiquid(${a.id})" title="Click to toggle" style="font-size:10px;padding:1px 6px;border-radius:6px;cursor:pointer;margin-left:2px;${a.liquid===false?'background:#fdecea;color:#c0392b':'background:var(--accent-light);color:var(--accent)'}">${a.liquid===false?'&#127968; Illiquid':'&#128167; Liquid'}</span></div>
+      </div>
+      <div class="acct-right"><div class="acct-bal">${fmt(a.balance)}</div><div class="acct-chg ${a.monthChange<0?'neg':''}">${fmtChg(a.monthChange)}/mo</div></div>
+      <div class="acct-actions">
+        <button class="icon-btn" onclick="openModal(${a.id})" title="Edit"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="icon-btn del" onclick="confirmDelete(${a.id})" title="Delete"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>
+      </div>
+    </div>`;
+  }).join(''));
+
+  setHtml('overview-legend', accounts.map(a =>
+    `<span class="leg-item"><span class="leg-sq" style="background:${a.color}"></span>${esc(a.name)}</span>`).join(''));
+
+  setHtml('alloc-legend', accounts.map(a=>{
+    const pct=total>0?(a.balance/total*100).toFixed(1):'0.0';
+    return `<div class="alloc-row"><div class="alloc-dot" style="background:${a.color}"></div><div class="alloc-label">${esc(a.name)}</div><div class="alloc-pct">${pct}%</div></div>
+    <div class="alloc-bar"><div class="alloc-bar-fill" style="width:${pct}%;background:${a.color}"></div></div>`;
+  }).join(''));
+
+  // Account count label
+  const acctLabel = gel('acct-count-label');
+  if (acctLabel) acctLabel.textContent = accounts.length + ' account' + (accounts.length===1?'':'s');
+
+  if (gel('overviewChart')) renderOverviewChart();
+  if (gel('allocChart'))    renderAllocChart();
+  if (gel('perfChart'))     renderPerfChart();
+  // Rebuild projection chart if on that page (renderAll destroys it otherwise)
+  if (document.getElementById('page-projection')?.classList.contains('active')) {
+    initProjectionPage();
+  } else if (window._projChart) {
+    window._projChart.destroy();
+    window._projChart = null;
+  }
+}
+
+let selectedLiquid = true;
+
+function setLiquid(val) {
+  selectedLiquid = val;
+  const liq = document.getElementById('liq-btn');
+  const ill = document.getElementById('illiq-btn');
+  if (!liq || !ill) return;
+  const base = 'flex:1;padding:8px;border-radius:var(--radius-sm);font-size:13px;font-family:var(--font-body);cursor:pointer;transition:all .15s;border:1.5px solid ';
+  liq.style.cssText = base + (val ? 'var(--accent);background:var(--accent-light);color:var(--accent);font-weight:500' : 'var(--border-md);background:var(--surface-2);color:var(--text-2)');
+  ill.style.cssText = base + (!val ? 'var(--danger);background:var(--danger-light);color:var(--danger);font-weight:500' : 'var(--border-md);background:var(--surface-2);color:var(--text-2)');
+}
+
+function toggleLiquid(id) {
+  const a = accounts.find(x => x.id === id);
+  if (!a) return;
+  a.liquid = a.liquid === false ? true : false;
+  saveAccounts();
+  renderAll();
+}
+
+// ── Modal ──
+function buildColorSwatches(c){
+  selectedColor=c||COLORS[0];
+  document.getElementById('color-row').innerHTML=COLORS.map(x=>
+    `<div class="color-swatch ${x===selectedColor?'selected':''}" style="background:${x}" onclick="selectColor('${x}')"></div>`).join('');
+}
+function selectColor(c){
+  selectedColor=c;
+  document.querySelectorAll('.color-swatch').forEach(el=>{
+    const hex='#'+el.style.backgroundColor.match(/\d+/g).map(n=>parseInt(n).toString(16).padStart(2,'0')).join('');
+    el.classList.toggle('selected',hex===c.toLowerCase());
+  });
+}
+let modalPrevBalance = null; // previous balance when editing, null when adding
+
+function updateMonthlyChange() {
+  const balEl    = document.getElementById('f-balance');
+  const changeEl = document.getElementById('f-change');
+  const labelEl  = document.getElementById('f-change-auto-label');
+  if (!balEl || !changeEl) return;
+
+  const newBal = parseFloat(balEl.value) || 0;
+
+  if (modalPrevBalance !== null) {
+    // Editing — compute delta vs previous balance
+    const delta = newBal - modalPrevBalance;
+    changeEl.value = delta;
+    if (labelEl) {
+      labelEl.textContent = delta === 0 ? '— no change'
+        : (delta > 0 ? '▲ +' : '▼ ') + 'RM ' + Math.abs(delta).toLocaleString('en-MY') + ' vs previous';
+      labelEl.style.color = delta > 0 ? 'var(--success)' : delta < 0 ? 'var(--danger)' : 'var(--text-3)';
+    }
+  } else {
+    // New account — no previous to compare against
+    changeEl.value = 0;
+    if (labelEl) { labelEl.textContent = 'set after first update'; labelEl.style.color = 'var(--text-3)'; }
+  }
+}
+
+function openModal(id){
+  editingId=id||null;
+  document.getElementById('modal-title').textContent=id?'Edit account':'Add account';
+  document.getElementById('delete-btn').style.display=id?'inline-block':'none';
+  if(id){
+    const a=accounts.find(x=>x.id===id);
+    document.getElementById('f-name').value=a.name;
+    document.getElementById('f-type').value=a.type;
+    document.getElementById('f-balance').value=a.balance;
+    buildColorSwatches(a.color);
+    setLiquid(a.liquid!==false);
+    modalPrevBalance = a.balance;
+    updateMonthlyChange();
+  } else {
+    document.getElementById('f-name').value='';
+    document.getElementById('f-type').value='Savings';
+    document.getElementById('f-balance').value='';
+    buildColorSwatches(COLORS[nextId%COLORS.length]);
+    setLiquid(true);
+    modalPrevBalance = null;
+    updateMonthlyChange();
+  }
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('f-name').focus(),60);
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');editingId=null;modalPrevBalance=null;}
+function handleOverlayClick(e){if(e.target===document.getElementById('modal-overlay'))closeModal();}
+function saveAccount(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){document.getElementById('f-name').focus();return;}
+  const type=document.getElementById('f-type').value;
+  const balance=parseFloat(document.getElementById('f-balance').value)||0;
+  // Monthly change is auto-computed: delta vs previous balance (or 0 for new accounts)
+  const monthChange = modalPrevBalance !== null ? balance - modalPrevBalance : 0;
+  if(editingId){
+    const a=accounts.find(x=>x.id===editingId);
+    Object.assign(a,{name,type,balance,monthChange,color:selectedColor,liquid:selectedLiquid});
+  } else {
+    const a={id:nextId++,name,type,balance,monthChange,color:selectedColor,liquid:selectedLiquid};
+    accounts.push(a);
+  }
+  saveAccounts();closeModal();syncAndRender();
+}
+function confirmDelete(id){
+  editingId=id;
+  const a=accounts.find(x=>x.id===id);
+  if(!a) return;
+  showConfirm('Delete account', 'Delete "'+a.name+'"? This cannot be undone.', 'Delete', deleteAccount);
+}
+function deleteAccount(){accounts=accounts.filter(x=>x.id!==editingId);saveAccounts();closeModal();renderAll();}
+
+// ── Projection ──
+function initProjectionPage() {
+  // Populate ASB account selector
+  const sel = document.getElementById('asb-acct-sel');
+  if (sel) {
+    sel.innerHTML = '<option value="">— None —</option>' +
+      accounts.map(a => `<option value="${a.id}"${a.id===asbSettings.accountId?' selected':''}>${esc(a.name)}</option>`).join('');
+  }
+  const rateEl = document.getElementById('asb-rate');
+  if (rateEl) rateEl.value = asbSettings.divRate;
+  const monEl = document.getElementById('asb-month');
+  if (monEl) monEl.value = asbSettings.creditMonth;
+
+  // Auto-set contribution from budget tracker savings category
+  const bd = readBudgetData();
+  const contribSlider = document.getElementById('contrib');
+  const budgetLabel   = document.getElementById('contrib-from-budget');
+  if (bd) {
+    const exps = ld('bt2_exps', []);
+    const now=new Date(), sd=ld('bt2_day',28), d=now.getDate();
+    let cs;
+    if (d>=sd) cs=new Date(now.getFullYear(),now.getMonth(),sd);
+    else        cs=new Date(now.getFullYear(),now.getMonth()-1,sd);
+    const ce = new Date(cs.getFullYear(), cs.getMonth()+1, sd-1);
+    const cycleSavings = exps.filter(e=>{
+      const dd=new Date(e.date); return dd>=cs&&dd<=ce && e.cat==='Savings';
+    }).reduce((s,e)=>s+e.amt, 0);
+    if (cycleSavings > 0 && contribSlider) {
+      const clamped = Math.min(10000, Math.max(100, Math.round(cycleSavings/100)*100));
+      contribSlider.value = clamped;
+      if (budgetLabel) budgetLabel.textContent = '← from budget (RM '+Math.round(cycleSavings).toLocaleString('en-MY')+')';
+    }
+  }
+
+  // Starting point panel
+  const assets = totalAssets(), liabs = totalLiabilities(), nw = netWorth();
+  const el = id => document.getElementById(id);
+  if (el('proj-assets')) el('proj-assets').textContent = fmt(assets);
+  if (el('proj-liabs'))  el('proj-liabs').textContent  = liabs > 0 ? '−'+fmt(liabs) : '—';
+  if (el('proj-nw'))     el('proj-nw').textContent     = fmt(nw);
+  if (el('proj-lnw'))    el('proj-lnw').textContent    = fmt(liquidNetWorth());
+
+  buildProjection();
+}
+
+function buildProjection() {
+  const contrib = parseFloat(document.getElementById('contrib').value);
+  const rate    = parseFloat(document.getElementById('rate').value) / 100;
+  const years   = parseInt(document.getElementById('horizon').value);
+  const cg      = parseFloat(document.getElementById('cg').value) / 100;
+
+  document.getElementById('contrib-out').textContent  = 'RM '+Math.round(contrib).toLocaleString('en-MY');
+  document.getElementById('rate-out').textContent     = document.getElementById('rate').value+'%';
+  document.getElementById('horizon-out').textContent  = years+' yrs';
+  document.getElementById('cg-out').textContent       = document.getElementById('cg').value+'%';
+
+  const sy=new Date().getFullYear(), labels=[], totalArr=[], contribArr=[];
+  let w=netWorth(), mc=contrib, tc=w;
+  for(let y=0;y<=years;y++){
+    labels.push(sy+y);
+    totalArr.push(Math.round(w));
+    contribArr.push(Math.round(tc));
+    for(let m=0;m<12;m++){ w=w*(1+rate/12)+mc; tc+=mc; }
+    mc*=(1+cg);
+  }
+
+  const fw=totalArr[totalArr.length-1];
+  document.getElementById('proj-note').innerHTML=
+    `Starting from <strong>${fmt(netWorth())}</strong> net worth — by <strong>${sy+years}</strong> it could reach <strong>${fmt(fw)}</strong>, with <strong>${fmt(fw-contribArr[contribArr.length-1])}</strong> coming from compound growth.`;
+
+  const targets=[1000000,2000000,3000000,5000000],
+        msC=['#1D9E75','#1d4b8f','#4a3580','#8f2d4e'],
+        msB=['#e8f2ed','#e8eef7','#eeebf7','#f7ebef'],
+        msL=['RM 1M','RM 2M','RM 3M','RM 5M'];
+  document.getElementById('milestones').innerHTML=targets.map((t,i)=>{
+    const idx=totalArr.findIndex(v=>v>=t), r=idx>=0, yr=r?sy+idx:null;
+    return`<div class="milestone"><div class="ms-badge" style="background:${msB[i]};color:${msC[i]}">${msL[i]}</div><div class="ms-info"><div class="ms-name">${r?'Reached in '+yr:'Not within '+years+' years'}</div><div class="ms-sub">${r?(yr-sy)+' years from now':'Increase contributions or return rate'}</div></div></div>`;
+  }).join('');
+
+  if(window._projChart) window._projChart.destroy();
+  window._projChart=new Chart(document.getElementById('projChart'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'Net worth',data:totalArr,borderColor:'#1d4b8f',backgroundColor:'#1d4b8f18',fill:true,tension:0.4,borderWidth:2.5,pointRadius:0},
+      {label:'Contributions',data:contribArr,borderColor:'#a0b8d8',backgroundColor:'transparent',borderDash:[5,4],tension:0,borderWidth:1.5,pointRadius:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.dataset.label+': '+fmt(ctx.parsed.y)}}},
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11,family:'DM Sans'},color:'#a09d97',maxTicksLimit:8}},
+        y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:11,family:'DM Sans'},color:'#a09d97',callback:fmtK}}
+      }
+    }
+  });
+}
+['contrib','rate','horizon','cg'].forEach(id=>document.getElementById(id).addEventListener('input',buildProjection));
+
+
+// ── Auto-compute monthly change from last two snapshots ──
+// Returns null if not enough data, else RM change per month avg
+function computeMonthlyChange() {
+  const snaps = balanceLog.filter(s => s.monthKey).slice(-2);
+  if (snaps.length < 2) return null;
+  const older = snaps[0], newer = snaps[1];
+  const months = Math.max(1,
+    (new Date(newer.monthKey+'-01') - new Date(older.monthKey+'-01')) / (1000*60*60*24*30.44)
+  );
+  return Math.round((newer.netWorth - older.netWorth) / months);
+}
+
+// ── Navigation ──
+const PAGES=['overview','projection','accounts','history','budget'];
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach((el,i)=>el.classList.toggle('active',PAGES[i]===name));
+  // Always sync bank+CC before rendering any page so balances are current
+  syncBankLinks();
+  syncCCDebts();
+  syncLoanDebts();
+  renderAll();
+  if(name==='projection')initProjectionPage();
+  if(name==='budget')renderBudgetPage();
+  if(name==='history')renderHistory();
+}
+
+
+
+function clearHistory() {
+  showConfirm('Clear monthly history', 'This will delete all monthly snapshots. This cannot be undone.', 'Clear all', () => {
+    balanceLog = [];
+    saveLog();
+    renderHistory();
+    renderAll();
+    showToast('Monthly history cleared');
+  });
+}
+
+
+function resetAccounts() {
+  showConfirm('Reset accounts', 'This will restore the default 5 accounts. Your history and budget links are kept.', 'Reset', () => {
+    accounts = DEFAULT_ACCOUNTS.map(a => ({...a}));
+    nextId = 6;
+    sv(ACCT_KEY, accounts);
+    syncAndRender();
+    showToast('Accounts reset to defaults');
+  });
+}
+
+// ── Sync everything then re-render ──
+function syncAndRender() {
+  syncBankLinks();
+  syncCCDebts();
+  syncLoanDebts();
+  renderAll();
+}
+
+// ── Export / Import ──
+const ALL_KEYS = [ACCT_KEY, LOG_KEY, RULES_KEY, APPLIED_KEY, LINKS_KEY, CC_KEY, LOAN_KEY, ASB_KEY];
+
+function exportData() {
+  const data = {};
+  ALL_KEYS.forEach(k => {
+    const v = localStorage.getItem(k);
+    if (v !== null) data[k] = JSON.parse(v);
+  });
+  Object.keys(localStorage).forEach(k => {
+    if (k.startsWith(ASB_KEY + '_credited_')) data[k] = JSON.parse(localStorage.getItem(k));
+  });
+  data._exported = new Date().toISOString();
+  const json = JSON.stringify(data, null, 2);
+  const ta = document.getElementById('export-json');
+  if (ta) ta.value = json;
+  const m = document.getElementById('export-modal');
+  if (m) m.classList.add('open');
+  setTimeout(() => { if (ta) { ta.focus(); ta.select(); } }, 100);
+}
+
+function closeExportModal() {
+  const m = document.getElementById('export-modal');
+  if (m) m.classList.remove('open');
+}
+
+function copyExportJson() {
+  const ta = document.getElementById('export-json');
+  if (!ta) return;
+  ta.select();
+  try {
+    navigator.clipboard.writeText(ta.value).then(() => {
+      showToast('Copied! Paste into a .json file and save it');
+    }).catch(() => {
+      document.execCommand('copy');
+      showToast('Copied! Paste into a .json file and save it');
+    });
+  } catch(e) {
+    document.execCommand('copy');
+    showToast('Copied! Paste into a .json file and save it');
+  }
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      // Write all keys to localStorage
+      Object.entries(data).forEach(([k, v]) => {
+        if (k !== '_exported') localStorage.setItem(k, JSON.stringify(v));
+      });
+      // Reload all state from localStorage
+      accounts     = ld(ACCT_KEY, DEFAULT_ACCOUNTS);
+      balanceLog   = ld(LOG_KEY, []);
+      autoRules    = ld(RULES_KEY, {});
+      appliedCycles= new Set(ld(APPLIED_KEY, []));
+      bankLinks    = ld(LINKS_KEY, {});
+      ccDebts      = ld(CC_KEY, []);
+      loanDebts    = ld(LOAN_KEY, []);
+      asbSettings  = ld(ASB_KEY, { accountId: null, divRate: 6.0, creditMonth: 1 });
+      nextId       = accounts.length > 0 ? Math.max(...accounts.map(a => a.id), 5) + 1 : 6;
+      syncBankLinks();
+      syncCCDebts();
+      syncLoanDebts();
+      renderAll();
+      showToast('Data imported — ' + accounts.length + ' accounts loaded');
+    } catch(err) {
+      showToast('Import failed — invalid file');
+    }
+    event.target.value = ''; // reset so same file can be re-imported
+  };
+  reader.readAsText(file);
+}
+
+// ── Toast ──
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+// ── Init ──
+// Guard: if saved accounts look like a previous corrupted single-account state, reset to defaults
+(function() {
+  const saved = ld(ACCT_KEY, null);
+  if (saved && Array.isArray(saved) && saved.length === 1 && saved[0].name === 'Current account' && !bankLinks[Object.keys(bankLinks).find(k => bankLinks[k] === saved[0].id)]) {
+    // Single stale account that isn't even linked — looks corrupted, restore defaults
+    accounts = DEFAULT_ACCOUNTS.map(a => ({...a}));
+    sv(ACCT_KEY, accounts);
+  }
+})();
+syncBankLinks();
+syncCCDebts();
+syncLoanDebts();
+checkASBDividend();
+renderAll();
+// Pre-populate budget badge
+(()=>{const bd=readBudgetData();if(!bd)return;const b=document.getElementById('nav-budget-badge');if(bd.surplus>0){b.textContent='+'+fmtK(bd.surplus);b.className='nav-badge surplus';}else if(bd.surplus<0){b.textContent=fmtK(bd.surplus);b.className='nav-badge deficit';}else{b.textContent='RM 0';}})();
+</script>
+</body>
+</html>
